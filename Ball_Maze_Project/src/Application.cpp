@@ -12,6 +12,10 @@
 #include "vendor/glm/gtc/matrix_transform.hpp"
 #include "vendor/glm/vec3.hpp"
 
+#include "vendor/imgui/imgui.h"
+#include "vendor/imgui/imgui_impl_glfw.h"
+#include "vendor/imgui/imgui_impl_opengl3.h"
+
 //Constants
 const int rows = 36;
 const int cols = 64;
@@ -111,7 +115,7 @@ void HandleCollision(glm::vec3& circle_velocity) {
 	circle_velocity = glm::vec3(0.0f); // Stop movement
 }
 
-void CheckCollisions() {
+void CheckCollisions(GLFWwindow* window) {
 	for (int i = 0; i < rows; i++) {
 		float block_y = 36.0f - i * tileSize; // Calculate block Y position
 		for (int j = 0; j < cols; j++) {
@@ -130,16 +134,22 @@ void CheckCollisions() {
 					circle_velocity = glm::vec3(0.0f); // Stop movement
 				}
 			}
+			if (tiles[i][j] == 2) //doesnt work properly not pushed git
+			{
+				float block_x = j * tileSize;
+				if((circle_position.x - radius) == block_x && (circle_position.y + radius ) == block_y)
+					glfwSetWindowShouldClose(window, true);
+			}
 		}
 	}
 }
 
-void RenderAndUpdate(float delta_time, const glm::mat4& proj, Shader& shader, unsigned int vao, unsigned int vao_circle) {
+void RenderAndUpdate(float delta_time, const glm::mat4& proj, Shader& shader, unsigned int vao, unsigned int vao_circle, GLFWwindow* window) {
 	// Ball Movement (Update position)
 	circle_position += circle_velocity * delta_time;
 
 	// Check for collisions
-	CheckCollisions();
+	CheckCollisions(window);
 
 	// Render Maze
 	float starting_vertex_maze_x = 0.0f;
@@ -289,11 +299,24 @@ int main(void)
 	float lastTime = glfwGetTime();
 	float deltaTime = 0.0f;
 
+	//imgui
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO(); (void)io;
+	ImGui::StyleColorsDark();
+
+	ImGui_ImplGlfw_InitForOpenGL(window, true);
+	ImGui_ImplOpenGL3_Init("#version 330");
+
 	/* Loop until the user closes the window */
 	while (!glfwWindowShouldClose(window))
 	{	
 		// Clear the screen
 		GLCall(glClear(GL_COLOR_BUFFER_BIT));
+
+		ImGui_ImplOpenGL3_NewFrame();
+		ImGui_ImplGlfw_NewFrame();
+		ImGui::NewFrame();
 
 		shader.Bind();
 
@@ -302,12 +325,22 @@ int main(void)
 		lastTime = currentTime;
 
 		ProcessInput(window);            
-		RenderAndUpdate(deltaTime, proj, shader, vao, vao_circle); 
+		RenderAndUpdate(deltaTime, proj, shader, vao, vao_circle, window);
 
+		{
+			ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+		}
+
+		ImGui::Render();
+		ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 		// Swap buffers and poll for events
 		glfwSwapBuffers(window);
 		glfwPollEvents();
 	}
+
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
 
 	glfwTerminate();
 	return 0;
